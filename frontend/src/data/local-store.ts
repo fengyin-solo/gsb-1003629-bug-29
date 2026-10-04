@@ -2,7 +2,7 @@ import { SEED_ROWS } from './seed'
 import type { EntryRow } from './types'
 
 // 本地持久化：数据放在 localStorage 里，刷新、关掉再打开都还在。
-const STORAGE_KEY = 'forest-fire-patrol:entries'
+const STORAGE_KEY = 'forest-fire-patrol:entries:v2'
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -52,6 +52,11 @@ export function resetRows(key: string): EntryRow[] {
   const rows = clone(SEED_ROWS[key] ?? [])
   saveRows(key, rows)
   return rows
+}
+
+/** 取指定模块的示例种子（不落盘），供域级重置时整体重建关联模块。 */
+export function seedRowsOf(key: string): EntryRow[] {
+  return clone(SEED_ROWS[key] ?? [])
 }
 
 export function storageKey(): string {

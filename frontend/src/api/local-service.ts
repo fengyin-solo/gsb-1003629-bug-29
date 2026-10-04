@@ -1,9 +1,28 @@
 import { MODULE_BY_KEY } from '@/data/modules'
 import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
+import {
+  abortTask,
+  completeTask,
+  droneTaskRows,
+  startTask,
+} from '@/api/drone-service'
+import { resetDroneDB } from '@/data/drone/drone-store'
 import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
 
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
 const NEGATIVE_ACTIONS = ['撤销', '作废', '拒绝', '驳回', '停用', '忽略', '下线', '回滚']
+
+// 无人机巡查动作 → 领域服务方法：状态流转统一走任务状态机，杜绝中止后仍显示飞行中。
+const DRONE_ACTIONS: Record<string, (id: number) => ActionResult> = {
+  开始飞行: startTask,
+  确认完成: completeTask,
+  中止任务: abortTask,
+}
+
+// 无人机巡查读源：飞手/任务/架次/报告/提醒在同一领域库里，列表与概览都读它。
+function rowsOf(key: string): EntryRow[] {
+  return key === 'drone' ? droneTaskRows() : listRows(key)
+}
 
 export function moduleMeta(key: string): ModuleMeta {
   const meta = MODULE_BY_KEY.get(key)
@@ -24,7 +43,7 @@ export function filterRows(rows: EntryRow[], filters: Record<string, string>): E
 }
 
 export function listEntries(key: string, filters: Record<string, string> = {}): PageResult {
-  const matched = filterRows(listRows(key), filters)
+  const matched = filterRows(rowsOf(key), filters)
   return { items: matched, total: matched.length, page: 1, size: matched.length }
 }
 
@@ -33,6 +52,11 @@ export function runAction(key: string, id: number, action: string): ActionResult
   const target = meta.actionTargets[action]
   if (!target) {
     return { ok: false, message: `${meta.entity}没有登记「${action}」这个动作` }
+  }
+  // 无人机巡查：交给领域状态机处理（含合法性校验与起降时间保留）。
+  if (key === 'drone') {
+    const handler = DRONE_ACTIONS[action]
+    return handler ? handler(id) : { ok: false, message: `${meta.entity}没有登记「${action}」这个动作` }
   }
   const rows = listRows(key)
   const index = rows.findIndex((row) => Number(row.id) === id)
@@ -57,7 +81,11 @@ export function runAction(key: string, id: number, action: string): ActionResult
 }
 
 export function resetModule(key: string): PageResult {
-  resetRows(key)
+  if (key === 'drone') {
+    resetDroneDB()
+  } else {
+    resetRows(key)
+  }
   return listEntries(key)
 }
 
@@ -65,7 +93,7 @@ export function exportEntries(key: string): { filename: string; content: string 
   const meta = moduleMeta(key)
   const header = ['编号', ...meta.fields, '当前状态']
   const lines = [header.join(',')]
-  for (const row of listRows(key)) {
+  for (const row of rowsOf(key)) {
     lines.push([row.id, ...meta.fields.map((field) => row[field] ?? ''), row.status].join(','))
   }
   return { filename: `${meta.name}-清单.csv`, content: `\uFEFF${lines.join('\n')}` }
@@ -87,7 +115,8 @@ export function downloadEntries(key: string): void {
 export function loadOverview(): OverviewResult {
   const rows = allRows()
   const modules = [...MODULE_BY_KEY.values()].map((meta) => {
-    const entries = rows[meta.key] ?? []
+    // 无人机巡查读领域适配数据，保证概览的待处理/异常量和任务列表、提醒是同一份。
+    const entries = meta.key === 'drone' ? droneTaskRows() : rows[meta.key] ?? []
     return {
       name: meta.name,
       created: entries.length,

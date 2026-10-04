@@ -10,6 +10,8 @@ const Equipment = () => import('@/views/equipment/index.vue')
 const Weather = () => import('@/views/weather/index.vue')
 const Firereport = () => import('@/views/firereport/index.vue')
 const Drone = () => import('@/views/drone/index.vue')
+const DroneTrack = () => import('@/views/drone/track.vue')
+const DroneUpload = () => import('@/views/drone/upload.vue')
 const Campaign = () => import('@/views/campaign/index.vue')
 const Checkpoint = () => import('@/views/checkpoint/index.vue')
 const Duty = () => import('@/views/duty/index.vue')
@@ -33,6 +35,8 @@ const router = createRouter({
     { path: '/weather', name: 'weather', component: Weather },
     { path: '/firereport', name: 'firereport', component: Firereport },
     { path: '/drone', name: 'drone', component: Drone },
+    { path: '/drone/task/:taskId/upload', name: 'drone-upload', component: DroneUpload },
+    { path: '/drone/track/:sortieId', name: 'drone-track', component: DroneTrack },
     { path: '/campaign', name: 'campaign', component: Campaign },
     { path: '/checkpoint', name: 'checkpoint', component: Checkpoint },
     { path: '/duty', name: 'duty', component: Duty },

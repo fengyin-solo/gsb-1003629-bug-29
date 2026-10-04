@@ -37,10 +37,18 @@ export function allRows(): Record<string, EntryRow[]> {
 }
 
 export function listRows(key: string): EntryRow[] {
+  // 无人机巡查使用独立的领域数据（飞手/架次/航迹/报告/提醒），
+  // 由 api/drone-service 的 droneTaskRows() 适配，通用桶里不再保存 drone，避免两份数据对不上。
+  if (key === 'drone') {
+    return []
+  }
   return allRows()[key] ?? []
 }
 
 export function saveRows(key: string, rows: EntryRow[]): void {
+  if (key === 'drone') {
+    throw new Error('无人机巡查数据请走 drone-service，不能写通用条目桶')
+  }
   const next = { ...allRows(), [key]: rows }
   cache = next
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -49,6 +57,9 @@ export function saveRows(key: string, rows: EntryRow[]): void {
 }
 
 export function resetRows(key: string): EntryRow[] {
+  if (key === 'drone') {
+    throw new Error('无人机巡查数据请用 resetDroneDB 重置')
+  }
   const rows = clone(SEED_ROWS[key] ?? [])
   saveRows(key, rows)
   return rows
